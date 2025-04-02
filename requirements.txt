@@ -1,0 +1,22 @@
+# dehazing_project/requirements.txt
+
+# 核心依赖
+torch>=1.10.0
+torchvision>=0.11.0
+
+# 数据处理和可视化
+Pillow>=8.4.0
+numpy>=1.21.0
+opencv-python>=4.5.0
+scikit-image>=0.18.0
+
+# 配置管理
+PyYAML>=5.4.1
+
+# 开发工具
+tqdm>=4.62.0
+matplotlib>=3.4.0
+tensorboard>=2.7.0
+
+# 可选（用于数据增强）
+albumentations>=1.1.0

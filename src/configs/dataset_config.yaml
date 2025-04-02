@@ -1,0 +1,7 @@
+data_paths:
+  dehazed1: "../datasets/dehazed_1"
+  dehazed2: "../datasets/dehazed_2"
+  clear: "../datasets/clear"
+
+target_size: [256, 256]
+batch_size: 4
