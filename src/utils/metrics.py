@@ -48,6 +48,9 @@ class SSIMLoss(nn.Module):
     
     def _ssim(self, img1, img2):
         """计算SSIM"""
+        # 添加这一行确保window与输入在同一设备上
+        self.window = self.window.to(img1.device)
+        
         # 常数，避免除零
         C1 = (0.01 * 1.0) ** 2
         C2 = (0.03 * 1.0) ** 2

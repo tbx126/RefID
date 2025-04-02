@@ -6,8 +6,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import numpy as np
-from PIL import Image
 
 from data.dehaze_dataset import DehazeDataset
 from models.lte_extractor import LTEExtractor
@@ -35,35 +33,6 @@ class DehazeDecoder(nn.Module):
         return self.decoder(x) * 0.5 + 0.5  # 将[-1,1]范围映射到[0,1]
 
 def train(config):
-    # 检查和创建测试数据
-    print("检查数据路径：")
-    for key, path in config['data_paths'].items():
-        abs_path = os.path.abspath(path)
-        config['data_paths'][key] = abs_path  # 更新为绝对路径
-        print(f"  {key}: {abs_path}")
-        
-        if not os.path.exists(abs_path):
-            print(f"  路径不存在，创建目录: {abs_path}")
-            os.makedirs(abs_path, exist_ok=True)
-            
-            # 创建10张测试图像
-            for i in range(10):
-                # 随机RGB图像
-                random_img = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
-                img = Image.fromarray(random_img)
-                img.save(os.path.join(abs_path, f"test_img_{i}.png"))
-            print(f"  已在 {abs_path} 创建10张测试图像")
-        else:
-            images = [f for f in os.listdir(abs_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-            print(f"  找到 {len(images)} 张图像")
-            if len(images) == 0:
-                print(f"  警告: 目录存在但没有图像，创建测试图像")
-                for i in range(10):
-                    random_img = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
-                    img = Image.fromarray(random_img)
-                    img.save(os.path.join(abs_path, f"test_img_{i}.png"))
-                print(f"  已在 {abs_path} 创建10张测试图像")
-    
     # 创建模型保存目录
     os.makedirs(config['save_dir'], exist_ok=True)
     
@@ -253,41 +222,7 @@ def train(config):
 
 if __name__ == "__main__":
     # 加载配置
-    config_path = os.path.abspath('./configs/training_config.yaml')
-    print(f"加载配置文件: {config_path}")
-    
-    if not os.path.exists(config_path):
-        print(f"警告: 配置文件 {config_path} 不存在!")
-        # 使用默认配置
-        config = {
-            'data_paths': {
-                'dehazed1': "../datasets/dehazed_1",
-                'dehazed2': "../datasets/dehazed_2", 
-                'clear': "../datasets/clear"
-            },
-            'target_size': [256, 256],
-            'chunk_size': 1024,
-            'batch_size': 2,
-            'num_workers': 0,
-            'learning_rate': 0.0001,
-            'num_epochs': 200,
-            'lr_step_size': 30,
-            'lr_gamma': 0.5,
-            'lambda_l1': 1.0,
-            'lambda_ssim': 0.1,
-            'save_dir': "./checkpoints/RefID",
-            'save_interval': 10,
-            'eval_interval': 5,
-            'eval_batches': 2,
-            'log_interval': 1
-        }
-    else:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-    
-    # 打印加载的配置
-    print("加载的配置:")
-    for key, value in config.items():
-        print(f"  {key}: {value}")
+    with open('./configs/training_config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
     
     train(config)
