@@ -37,9 +37,11 @@ class DehazeDataset(Dataset):
         return padded_img
     
     def __len__(self):
+        # 确保返回实际图像列表的长度
         return len(self.file_triplets)
     
     def __getitem__(self, idx):
+        # 确保能正确加载图像
         img1 = Image.open(self.file_triplets[idx][0]).convert('RGB')
         img2 = Image.open(self.file_triplets[idx][1]).convert('RGB')
         img3 = Image.open(self.file_triplets[idx][2]).convert('RGB')
@@ -48,6 +50,7 @@ class DehazeDataset(Dataset):
         img2 = self._smart_pad(img2)
         img3 = self._smart_pad(img3)
         
+        # 返回字典必须包含'dehazed1', 'dehazed2', 'clear'键
         return {
             'dehazed1': self.normalize(self.to_tensor(img1)),
             'dehazed2': self.normalize(self.to_tensor(img2)),

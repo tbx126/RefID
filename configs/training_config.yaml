@@ -1,0 +1,28 @@
+# 数据路径
+data_paths:
+  dehazed1: "../datasets/dehazed_1"
+  dehazed2: "../datasets/dehazed_2"
+  clear: "../datasets/clear"
+
+# 模型参数
+target_size: [256, 256]
+chunk_size: 1024  # 注意力计算的分块大小
+
+# 训练参数
+batch_size: 4     # 减小批次大小
+num_workers: 4
+learning_rate: 0.0001
+num_epochs: 200
+lr_step_size: 30
+lr_gamma: 0.5
+
+# 损失权重
+lambda_l1: 1.0
+lambda_ssim: 0.1
+
+# 保存和日志
+save_dir: "./checkpoints/RefID"
+save_interval: 10
+eval_interval: 5
+eval_batches: 10  # 评估时使用的批次数
+log_interval: 5  # 日志记录间隔
