@@ -6,7 +6,14 @@ data_paths:
 
 # 模型参数
 target_size: [256, 256]
-chunk_size: 1024  # 注意力计算的分块大小
+chunk_size: 1024  # 如果不再使用可以删除
+
+# CSFI模块参数
+csfi_params:
+  in_channels: 256
+  n_feats: 64
+  res_depth: [3, 3, 3, 3]
+  res_scale: 0.1
 
 # 训练参数
 batch_size: 4     # 减小批次大小
