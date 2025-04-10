@@ -132,7 +132,6 @@ class MergeTail(nn.Module):
 
 
 class CSFI(nn.Module):
-    """重新实现的CSFI，完全兼容RefGT的FeatureFusion模块"""
     def __init__(self, in_channels=256, n_feats=64, res_depth=[3, 3, 3, 3], res_scale=0.1):
         super(CSFI, self).__init__()
         self.n_feats = n_feats

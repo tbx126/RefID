@@ -46,9 +46,9 @@ class Trainer:
     def _setup_dataset(self):
         """设置数据集和数据加载器"""
         train_dataset = DehazeDataset(
-            dehazed1_dir=self.config['data_paths']['dehazed1'],
-            dehazed2_dir=self.config['data_paths']['dehazed2'],
-            clear_dir=self.config['data_paths']['clear'],
+            dh_img_dir=self.config['data_paths']['dh_img'],
+            dh_ref_dir=self.config['data_paths']['dh_ref'],
+            cl_ref_dir=self.config['data_paths']['cl_ref'],
             target_size=self.config['target_size']
         )
         
@@ -100,26 +100,26 @@ class Trainer:
     
     def prepare(self, batch):
         """将批次数据移动到设备上"""
-        dehazed1 = batch['dehazed1'].to(self.device)
-        dehazed2 = batch['dehazed2'].to(self.device)
-        clear = batch['clear'].to(self.device)
-        return dehazed1, dehazed2, clear
+        dh_img = batch['dh_img'].to(self.device)
+        dh_ref = batch['dh_ref'].to(self.device)
+        cl_ref = batch['cl_ref'].to(self.device)
+        return dh_img, dh_ref, cl_ref
     
-    def _forward(self, dehazed1, dehazed2, clear):
+    def _forward(self, dh_img, dh_ref, cl_ref):
         """更新后的前向传播函数，兼容完整的CSFI"""
         # 特征提取
-        dehazed1_lv1, dehazed1_lv2, dehazed1_lv3 = self.lte_model((dehazed1 + 1.) / 2)
-        dehazed2_lv1, dehazed2_lv2, dehazed2_lv3 = self.lte_model((dehazed2 + 1.) / 2)
-        clear_lv1, clear_lv2, clear_lv3 = self.lte_model((clear + 1.) / 2)
+        dh_img_lv1, dh_img_lv2, dh_img_lv3 = self.lte_model((dh_img + 1.) / 2)
+        dh_ref_lv1, dh_ref_lv2, dh_ref_lv3 = self.lte_model((dh_ref + 1.) / 2)
+        cl_ref_lv1, cl_ref_lv2, cl_ref_lv3 = self.lte_model((cl_ref + 1.) / 2)
         
         # 特征搜索和转移
         S, T_lv3, T_lv2, T_lv1 = self.search_transfer(
-            dehazed1_lv3, dehazed2_lv3, 
-            clear_lv1, clear_lv2, clear_lv3
+            dh_img_lv3, dh_ref_lv3, 
+            cl_ref_lv1, cl_ref_lv2, cl_ref_lv3
         )
         
         # 使用集成的CSFI模块
-        output = self.csfi(dehazed1, S, T_lv3, T_lv2, T_lv1)
+        output = self.csfi(dh_img, S, T_lv3, T_lv2, T_lv1)
         
         return output, S, T_lv3, T_lv2, T_lv1
     
@@ -163,6 +163,32 @@ class Trainer:
         start_epoch = checkpoint.get('epoch', -1) + 1
         return start_epoch
     
+    def _find_latest_checkpoint(self):
+        """查找保存目录中最新的检查点"""
+        checkpoint_dir = self.config['save_dir']
+        checkpoints = [f for f in os.listdir(checkpoint_dir) if f.startswith('checkpoint_epoch_') and f.endswith('.pth')]
+        
+        if not checkpoints:
+            return None
+        
+        # 提取epoch编号并找到最大值
+        latest_checkpoint = None
+        latest_epoch = -1
+        
+        for ckpt in checkpoints:
+            try:
+                # 从文件名提取epoch编号
+                epoch_num = int(ckpt.split('_')[-1].split('.')[0])
+                if epoch_num > latest_epoch:
+                    latest_epoch = epoch_num
+                    latest_checkpoint = ckpt
+            except:
+                continue
+        
+        if latest_checkpoint:
+            return os.path.join(checkpoint_dir, latest_checkpoint)
+        return None
+    
     def train(self, start_epoch=0):
         """训练模型"""
         print(f"Starting training from epoch {start_epoch}")
@@ -179,17 +205,17 @@ class Trainer:
             
             for batch_idx, batch in enumerate(pbar):
                 # 准备数据
-                dehazed1, dehazed2, clear = self.prepare(batch)
+                dh_img, dh_ref, cl_ref = self.prepare(batch)
                 
                 # 清除梯度
                 self.optimizer.zero_grad()
                 
                 # 前向传播
-                output, S, T_lv3, T_lv2, T_lv1 = self._forward(dehazed1, dehazed2, clear)
+                output, S, T_lv3, T_lv2, T_lv1 = self._forward(dh_img, dh_ref, cl_ref)
                 
                 # 计算损失
-                rec_loss = self.loss_functions['rec_loss'](output, clear) * self.config['lambda_l1']
-                ssim_loss = (1 - self.loss_functions['ssim_loss'](output, clear)) * self.config['lambda_ssim']
+                rec_loss = self.loss_functions['rec_loss'](output, cl_ref) * self.config['lambda_l1']
+                ssim_loss = (1 - self.loss_functions['ssim_loss'](output, cl_ref)) * self.config['lambda_ssim']
                 loss = rec_loss + ssim_loss
                 
                 # 反向传播和优化
@@ -202,8 +228,8 @@ class Trainer:
                 
                 # 记录第一个批次的图像
                 if batch_idx == 0 and epoch % self.config['log_interval'] == 0:
-                    self.writer.add_images('Input/Hazy', dehazed1, epoch)
-                    self.writer.add_images('Ground Truth', clear, epoch)
+                    self.writer.add_images('Input/Hazy', dh_img, epoch)
+                    self.writer.add_images('Ground Truth', cl_ref, epoch)
                     self.writer.add_images('Output/Dehazed', output, epoch)
             
             # 更新学习率
@@ -248,11 +274,11 @@ class Trainer:
                 if i >= eval_batches:
                     break
                 
-                dehazed1, dehazed2, clear = self.prepare(batch)
-                output, _, _, _, _ = self._forward(dehazed1, dehazed2, clear)
+                dh_img, dh_ref, cl_ref = self.prepare(batch)
+                output, _, _, _, _ = self._forward(dh_img, dh_ref, cl_ref)
                 
                 # 计算PSNR
-                psnr = calc_psnr_and_ssim(output, clear)
+                psnr = calc_psnr_and_ssim(output, cl_ref)
                 total_psnr += psnr
             
             # 计算平均PSNR
@@ -272,10 +298,19 @@ if __name__ == "__main__":
     
     trainer = Trainer(config)
     
-    # 如果指定了预训练模型，加载它
-    if 'pretrained_model' in config and config['pretrained_model']:
+    # 查找最新的检查点
+    latest_checkpoint = trainer._find_latest_checkpoint()
+    
+    # 确定起始epoch
+    if latest_checkpoint:
+        print(f"发现最新检查点: {latest_checkpoint}")
+        start_epoch = trainer.load(latest_checkpoint)
+        print(f"从epoch {start_epoch}继续训练...")
+    elif 'pretrained_model' in config and config['pretrained_model']:
+        print(f"没有找到检查点，加载预训练模型: {config['pretrained_model']}")
         start_epoch = trainer.load(config['pretrained_model'])
     else:
+        print("从头开始训练...")
         start_epoch = 0
     
     # 开始训练

@@ -1,11 +1,11 @@
 # 数据路径
 data_paths:
-  dehazed1: "../datasets/dehazed_1"
-  dehazed2: "../datasets/dehazed_2"
-  clear: "../datasets/clear"
+  dh_img: "../datasets/dehazed_1"
+  dh_ref: "../datasets/dehazed_2"
+  cl_ref: "../datasets/clear"
 
 # 模型参数
-target_size: [256, 256]
+target_size: [512, 512]  # 输入图像大小
 chunk_size: 1024  # 如果不再使用可以删除
 
 # CSFI模块参数

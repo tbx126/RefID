@@ -9,10 +9,10 @@ from glob import glob
 
 class DehazeDataset(Dataset):
     """保持长宽比的padding数据集实现"""
-    def __init__(self, dehazed1_dir, dehazed2_dir, clear_dir, target_size=(256, 256)):
+    def __init__(self, dh_img_dir, dh_ref_dir, cl_ref_dir, target_size=(256, 256)):
         self.target_size = target_size
         self.pad_value = [0.7, 0.7, 0.7]
-        self.file_triplets = self._match_files(dehazed1_dir, dehazed2_dir, clear_dir)
+        self.file_triplets = self._match_files(dh_img_dir, dh_ref_dir, cl_ref_dir)
         self.to_tensor = transforms.ToTensor()
         self.normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     
@@ -46,13 +46,32 @@ class DehazeDataset(Dataset):
         img2 = Image.open(self.file_triplets[idx][1]).convert('RGB')
         img3 = Image.open(self.file_triplets[idx][2]).convert('RGB')
         
+        # 记录原始尺寸
+        original_size = img1.size  # (width, height)
+        orig_w, orig_h = original_size
+        
+        # 计算缩放和padding信息
+        w, h = original_size
+        scale = min(self.target_size[1]/w, self.target_size[0]/h)
+        new_w, new_h = int(w*scale), int(h*scale)
+        paste_pos = ((self.target_size[1]-new_w)//2, (self.target_size[0]-new_h)//2)
+        paste_x, paste_y = paste_pos
+        
+        # 应用智能padding
         img1 = self._smart_pad(img1)
         img2 = self._smart_pad(img2)
         img3 = self._smart_pad(img3)
         
-        # 返回字典必须包含'dehazed1', 'dehazed2', 'clear'键
+        # 返回字典包含原始图像信息，拆分元组为单独字段
         return {
-            'dehazed1': self.normalize(self.to_tensor(img1)),
-            'dehazed2': self.normalize(self.to_tensor(img2)),
-            'clear': self.normalize(self.to_tensor(img3))
+            'dh_img': self.normalize(self.to_tensor(img1)),
+            'dh_ref': self.normalize(self.to_tensor(img2)),
+            'cl_ref': self.normalize(self.to_tensor(img3)),
+            'original_w': orig_w,
+            'original_h': orig_h,
+            'scaled_w': new_w,
+            'scaled_h': new_h,
+            'paste_x': paste_x,
+            'paste_y': paste_y,
+            'filename': os.path.basename(self.file_triplets[idx][0])
         }
